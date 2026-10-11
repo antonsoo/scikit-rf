@@ -2312,6 +2312,7 @@ class Network:
         ntwk = Network(s=self.s[key,:],
                        frequency=self.frequency[key].copy(),
                        z0=self.z0[key,:],
+                       s_def=self.s_def,
                        )
 
         if isinstance(self.name, str):

@@ -464,6 +464,27 @@ class NetworkTestCase(unittest.TestCase):
         ntwk2 = rf.Network(filename_utf8, encoding='utf_8_sig')
         self.assertEqual(ntwk1.comments, ntwk2.comments)
 
+    def test_frequency_slice_preserves_s_def(self):
+        """Selecting samples must not reinterpret their wave definition."""
+        ntwk = rf.Network(os.path.join(self.test_dir, 'hfss_twoport.s2p'))
+        keys = [0, slice(10, 30), slice(None, None, 2), [1, 3, 7]]
+        for s_def in S_DEFINITIONS:
+            original = ntwk.copy()
+            original.renormalize(original.z0, s_def=s_def)
+            for key in keys:
+                with self.subTest(s_def=s_def, key=key):
+                    selected = original[key]
+                    self.assertEqual(selected.s_def, s_def)
+                    np.testing.assert_allclose(
+                        selected.z, original.z[key:key + 1]
+                        if isinstance(key, int) else original.z[key])
+                    reference = original.copy()
+                    reference.renormalize(50)
+                    selected.renormalize(50)
+                    np.testing.assert_allclose(
+                        selected.s, reference.s[key:key + 1]
+                        if isinstance(key, int) else reference.s[key])
+
     def test_constructor_from_hfss_touchstone(self):
         # HFSS can provide the port characteristic impedances in its generated touchstone file.
         # Check if reading a HFSS touchstone file with non-50Ohm impedances
@@ -1360,12 +1381,12 @@ class NetworkTestCase(unittest.TestCase):
                 net = rf.Network(s=np.zeros((p,p)), f=1, z0=z0, s_def=s_def)
                 net.z = z
                 # Connect the last two complex ports together
-                rf.network.innerconnect(net, p - 2, 2)
+                net = rf.network.innerconnect(net, p - 2, p - 1)
                 nets.append(net)
             for net in nets[1:]:
-                np.testing.assert_almost_equal(net.s, net[0].s)
-                self.assertTrue((net.z0 == net[0].z0).all())
-                self.assertTrue(net.s_def != net[0].s_def)
+                np.testing.assert_almost_equal(net.s, nets[0].s)
+                self.assertTrue((net.z0 == nets[0].z0).all())
+                self.assertTrue(net.s_def != nets[0].s_def)
 
     def test_innerconnect_preserves_s_def(self):
         """ Test that innerconnect() returns a Network with the same s_def as
